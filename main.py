@@ -1,0 +1,1 @@
+print("Aegis Event Bus pulse: OK. System is alive.")
