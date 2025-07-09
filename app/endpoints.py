@@ -1,13 +1,10 @@
 # app/endpoints.py
-
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from uuid import uuid4
 import datetime
-import sqlite3
 import json
 import paho.mqtt.publish as mqtt_publish
-
-# Import our own modules using relative paths
+import sqlite3
 from .database import get_db_connection
 from . import schemas
 from .archivist import create_job_folders, DATA_ROOT
@@ -21,7 +18,7 @@ def read_root():
     return {"status": "Aegis Event Bus is online"}
 
 @router.post("/job", response_model=schemas.Job, tags=["Jobs"])
-def create_new_job() -> schemas.Job:
+def create_new_job(conn: sqlite3.Connection = Depends(get_db_connection)):
     """
     Creates a new Job-ID, creates its folder structure, logs it to the
     database, and publishes a "job.created" event to the MQTT broker.

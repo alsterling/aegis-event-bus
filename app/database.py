@@ -1,36 +1,25 @@
 # app/database.py
-
 import sqlite3
 from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-# --- Configuration Setup ---
 load_dotenv()
-DB_PATH = Path(os.getenv("DB_PATH", "default.db"))
+DB_PATH = Path(os.getenv("DB_PATH", "eventbus.db"))
 
-# --- Database Helper Functions ---
 def get_db_connection():
-    """Creates and returns a new database connection."""
-    # check_same_thread=False is needed for FastAPI testing with SQLite
+    """This function will be our dependency. It provides the real database."""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
     return conn
 
-def initialize_db():
-    """Creates the database table if it doesn't already exist."""
-    print("Attempting to initialize the database...")
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS audit_log (
-          id        INTEGER PRIMARY KEY AUTOINCREMENT,
-          job_id    TEXT NOT NULL,
-          action    TEXT NOT NULL,
-          timestamp TEXT NOT NULL
-        )""")
-        conn.commit()
-        conn.close()
-        print("Database initialized successfully.")
-    except Exception as e:
-        print(f"Error initializing database: {e}")
+def initialize_db(conn: sqlite3.Connection):
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id    TEXT NOT NULL,
+      action    TEXT NOT NULL,
+      timestamp TEXT NOT NULL
+    )""")
+    conn.commit()
