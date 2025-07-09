@@ -3,6 +3,15 @@ from uuid import uuid4
 import sqlite3
 from pathlib import Path
 import datetime
+import os                
+from dotenv import load_dotenv 
+
+load_dotenv() # This command reads your .env file
+
+
+# Get config from the .env file, with a fallback default
+APP_NAME = os.getenv("APP_NAME", "Default App Title")
+DB_PATH  = Path(os.getenv("DB_PATH", "default.db"))
 
 # --- 1. Database Setup ---
 # This creates a simple database file in your project folder.
@@ -21,7 +30,7 @@ conn.commit()
 
 # --- 2. FastAPI Application ---
 # This creates your main application object.
-app = FastAPI(title="Aegis Event Bus")
+app = FastAPI(title=APP_NAME)
 
 # --- 3. API Endpoints (The "Doors" to your service) ---
 @app.get("/")

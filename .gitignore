@@ -180,3 +180,6 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 eventbus.db
+.env
+tls.key
+tls.crt
