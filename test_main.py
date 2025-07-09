@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from main import app # This imports the 'app' object from your main.py file
+from app.main import app # This imports the 'app' object from your main.py file
 
 # This creates a special client that can call your API directly for tests
 client = TestClient(app)
