@@ -15,7 +15,6 @@ DB_PATH  = Path(os.getenv("DB_PATH", "default.db"))
 
 # --- 1. Database Setup ---
 # This creates a simple database file in your project folder.
-DB_PATH = Path("eventbus.db")
 conn = sqlite3.connect(DB_PATH)
 cursor = conn.cursor()
 # This command creates the table if it doesn't already exist.
