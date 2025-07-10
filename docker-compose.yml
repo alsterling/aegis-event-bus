@@ -1,0 +1,26 @@
+# docker-compose.yml
+
+services:
+  # The Mosquitto MQTT Broker Service
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - mosquitto_data:/mosquitto/data
+
+  # Our Aegis Event Bus Service
+  # NOTICE: 'eventbus:' is at the same indentation level as 'mosquitto:'
+  eventbus:
+    build: .
+    container_name: aegis-eventbus-compose
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./projects_data:/code/projects_data
+      - ./eventbus.db:/code/eventbus.db
+    depends_on:
+      - mosquitto
+
+volumes:
+  mosquitto_data:
