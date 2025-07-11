@@ -2,14 +2,16 @@
 from fastapi import APIRouter, Depends
 from uuid import uuid4
 import datetime
+import sqlite3
 import json
 import paho.mqtt.publish as mqtt_publish
-import sqlite3
+import structlog
+
 from .database import get_db_connection
 from . import schemas
 from .archivist import create_job_folders, DATA_ROOT
 
-# This is the router that will hold all our API endpoints
+logger = structlog.get_logger(__name__)
 router = APIRouter()
 
 @router.get("/", tags=["Status"])
@@ -19,20 +21,14 @@ def read_root():
 
 @router.post("/job", response_model=schemas.Job, tags=["Jobs"])
 def create_new_job(conn: sqlite3.Connection = Depends(get_db_connection)):
-    """
-    Creates a new Job-ID, creates its folder structure, logs it to the
-    database, and publishes a "job.created" event to the MQTT broker.
-    """
+    """Creates a Job-ID, folder, DB log, and publishes an MQTT event."""
+    logger.info("job.create.started")
     job_id = f"FC-{uuid4()}"
     timestamp = datetime.datetime.now(datetime.UTC).isoformat()
     
-    # --- Step 1: Create the physical folder structure ---
-    # This call is now correct, passing the required base_path.
     create_job_folders(job_id=job_id, base_path=DATA_ROOT)
+    logger.info("job.folders.created", job_id=job_id)
     
-    # --- Step 2: Log the job to the audit database ---
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -40,14 +36,13 @@ def create_new_job(conn: sqlite3.Connection = Depends(get_db_connection)):
             (job_id, "job.created", timestamp)
         )
         conn.commit()
+        logger.info("job.db.logged", job_id=job_id)
     except Exception as e:
         conn.rollback()
+        logger.error("job.db.log_failed", job_id=job_id, error=str(e))
         raise e
-    finally:
-        conn.close()
-        
-    # --- Step 3: Publish the event to the MQTT broker ---
-    event_payload = { "job_id": job_id, "timestamp": timestamp }
+    
+    event_payload = {"job_id": job_id, "timestamp": timestamp}
     try:
         mqtt_publish.single(
             topic="aegis/job/created",
@@ -55,27 +50,24 @@ def create_new_job(conn: sqlite3.Connection = Depends(get_db_connection)):
             hostname="localhost",
             port=1883
         )
+        logger.info("job.event.published", job_id=job_id)
     except Exception as e:
-        # If MQTT fails, we don't want the whole request to fail.
-        # We just print a warning to the server logs.
-        print(f"WARNING: Could not publish to MQTT broker. Error: {e}")
+        logger.warning("job.event.publish_failed", job_id=job_id, error=str(e))
 
+    # This line is now correctly indented to be inside the function
+    logger.info("job.created.success", job_id=job_id)
     return {"job_id": job_id}
 
 @router.get("/jobs", tags=["Jobs"])
-def list_recent_jobs(limit: int = 20):
+def list_recent_jobs(conn: sqlite3.Connection = Depends(get_db_connection), limit: int = 20):
     """Returns a list of the most recent jobs from the audit log."""
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
+    logger.info("jobs.list.requested", limit=limit)
     cursor = conn.cursor()
     try:
-        cursor.execute(
-            "SELECT job_id, timestamp FROM audit_log "
-            "WHERE action='job.created' ORDER BY id DESC LIMIT ?",
+        rows = cursor.execute(
+            "SELECT job_id, timestamp FROM audit_log WHERE action='job.created' ORDER BY id DESC LIMIT ?",
             (limit,)
-        )
-        rows = cursor.fetchall()
-        # Convert the database rows into a list of dictionaries
+        ).fetchall()
         return [dict(row) for row in rows]
     finally:
         conn.close()

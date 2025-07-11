@@ -1,15 +1,29 @@
 # app/main.py
+
 from fastapi import FastAPI
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from . import database, endpoints
+
+# Import our own modules
+from . import endpoints
+from .logging_config import setup_logging
+from .database import initialize_db
 
 load_dotenv()
-APP_NAME = os.getenv("APP_NAME", "Default App Title")
-app = FastAPI(title=APP_NAME)
-app.include_router(endpoints.router)
 
-# Create the database and table if they don't exist on real startup
-conn = database.get_db_connection()
-database.initialize_db(conn) # We'll create an initialize_db in the next step
-conn.close()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handles application startup events."""
+    setup_logging()
+    # Initialize the database and create tables if they don't exist
+    initialize_db()
+    print("INFO:     Application startup complete.")
+    yield
+    print("INFO:     Application shutdown.")
+
+APP_NAME = os.getenv("APP_NAME", "Default App Title")
+app = FastAPI(title=APP_NAME, lifespan=lifespan)
+
+# Include the API endpoints from the endpoints.py file
+app.include_router(endpoints.router)
