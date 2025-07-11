@@ -1,26 +1,38 @@
 # docker-compose.yml
-
 services:
+  # The PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    # Expose the port for local testing if needed
+    ports:
+      - "5432:5432" 
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   # The Mosquitto MQTT Broker Service
   mosquitto:
     image: eclipse-mosquitto:2
     ports:
       - "1883:1883"
-    volumes:
-      - mosquitto_data:/mosquitto/data
 
   # Our Aegis Event Bus Service
-  # NOTICE: 'eventbus:' is at the same indentation level as 'mosquitto:'
   eventbus:
     build: .
-    container_name: aegis-eventbus-compose
     ports:
       - "8000:8000"
+    environment:
+      # Pass the environment variables to the app container
+      - DATABASE_URL=${DATABASE_URL}
+      - DATA_ROOT=/code/projects_data
     volumes:
       - ./projects_data:/code/projects_data
-      - ./eventbus.db:/code/eventbus.db
     depends_on:
+      - postgres
       - mosquitto
 
 volumes:
-  mosquitto_data:
+  postgres_data:
