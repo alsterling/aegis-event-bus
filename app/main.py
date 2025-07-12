@@ -12,5 +12,9 @@ async def lifespan(app: FastAPI):
     print("INFO:     Application shutdown.")
 
 app = FastAPI(title="Aegis Event Bus", lifespan=lifespan)
+
+# Include the main API router
 app.include_router(endpoints.router)
+
+# THIS IS THE FIX: Explicitly include the security router
 app.include_router(security.router)
