@@ -4,6 +4,7 @@ import paho.mqtt.publish as mqtt_publish
 from app.main import app
 from app.database import initialize_db, DB_PATH
 import os
+import logging
 
 client = TestClient(app)
 
@@ -36,7 +37,6 @@ def test_login_and_use_protected_endpoints(monkeypatch):
     setup_test_database()
     monkeypatch.setattr(mqtt_publish, "single", lambda *args, **kwargs: None)
 
-    # Step 1: Log in to get a token
     login_data = {"username": "testuser", "password": "testpassword"}
     r_token = client.post("/token", data=login_data)
     assert r_token.status_code == 200
@@ -45,14 +45,33 @@ def test_login_and_use_protected_endpoints(monkeypatch):
     access_token = token_data["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
     
-    # Step 2: Use the token to create a job
     r_create = client.post("/job", headers=headers)
     assert r_create.status_code == 200
     new_job_id = r_create.json()["job_id"]
 
-    # Step 3: Use the token to list jobs and verify the new job is present
     r_list = client.get("/jobs", headers=headers)
     assert r_list.status_code == 200
     jobs_list = r_list.json()
     assert len(jobs_list) == 1
     assert jobs_list[0]["job_id"] == new_job_id
+
+def test_job_creation_logs_message(monkeypatch, capsys):
+    """Tests that when a job is created, a log message is emitted to stdout."""
+    setup_test_database()
+    monkeypatch.setattr(mqtt_publish, "single", lambda *args, **kwargs: None)
+    
+    # Log in to get a token
+    login_data = {"username": "testuser", "password": "testpassword"}
+    r_token = client.post("/token", data=login_data)
+    access_token = r_token.json()["access_token"]
+    headers = {"Authorization": f"Bearer {access_token}"}
+    
+    # Call the endpoint to create a job
+    client.post("/job", headers=headers)
+
+    # THIS IS THE FIX: We use 'capsys' to capture standard output (the screen)
+    captured = capsys.readouterr()
+    
+    # We check if our expected log message is in the captured screen output
+    assert "job.db.logged" in captured.out
+    assert "job.create.success" in captured.out
