@@ -44,7 +44,7 @@ def test_login_and_use_protected_endpoints(monkeypatch):
     assert "access_token" in token_data
     access_token = token_data["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
-    
+
     # Step 2: Use the token to create a job
     r_create = client.post("/job", headers=headers)
     assert r_create.status_code == 200
