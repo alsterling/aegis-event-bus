@@ -1,37 +1,23 @@
 # docker-compose.yml
 services:
-  postgres:
-    image: postgres:16-alpine
-    env_file:
-      - .env
-    ports:
-      - "${DB_PORT}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+  # The Mosquitto MQTT Broker Service
   mosquitto:
     image: eclipse-mosquitto:2
     ports:
       - "1883:1883"
 
+  # Our Aegis Event Bus Service
   eventbus:
     build: .
-    env_file:
-      - .env
     ports:
       - "8000:8000"
+    # This makes the .env file available inside the container
+    env_file:
+      - .env
     volumes:
+      # This is the key part for SQLite: it shares your local files
+      # with the container so it can read/write to them.
       - ./projects_data:/code/projects_data
+      - ./eventbus.db:/code/eventbus.db
     depends_on:
-      postgres:
-        condition: service_healthy
-      mosquitto:
-        condition: service_started
-
-volumes:
-  postgres_data:
+      - mosquitto
