@@ -1,20 +1,31 @@
 # app/main.py
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from . import database, endpoints, security
+import structlog
+
+# Import all the necessary modules from your 'app' package
+from . import database, endpoints, security, logging_config
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handles application startup events."""
+    # This single line sets up your professional logging system
+    logging_config.setup_logging()
+    
+    logger = structlog.get_logger(__name__)
+    logger.info("application.startup.begin")
+    
     database.initialize_db()
-    print("INFO:     Application startup complete.")
+    
+    logger.info("application.startup.complete")
     yield
-    print("INFO:     Application shutdown.")
+    # Code below yield runs on shutdown
+    logger.info("application.shutdown.complete")
 
+
+# Create the main app object and tell it to use our lifespan function
 app = FastAPI(title="Aegis Event Bus", lifespan=lifespan)
 
-# Include the main API router
+# Include the routers from your other files
 app.include_router(endpoints.router)
-
-# THIS IS THE FIX: Explicitly include the security router
 app.include_router(security.router)
