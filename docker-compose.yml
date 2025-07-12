@@ -1,6 +1,5 @@
 # docker-compose.yml
 services:
-  # NEW: The PostgreSQL Database Service
   postgres:
     image: postgres:16-alpine
     env_file:
@@ -15,13 +14,11 @@ services:
       timeout: 5s
       retries: 5
 
-  # The Mosquitto MQTT Broker Service (Unchanged)
   mosquitto:
     image: eclipse-mosquitto:2
     ports:
       - "1883:1883"
 
-  # Our Aegis Event Bus Service (Updated depends_on)
   eventbus:
     build: .
     env_file:
@@ -29,15 +26,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # We keep the old SQLite volume for now. The app will still use it.
+      # The eventbus.db volume is no longer needed
       - ./projects_data:/app/projects_data
-      - ./eventbus.db:/app/eventbus.db
     depends_on:
-      mosquitto:
-        condition: service_started
-      # NEW: This line tells our app to wait for Postgres to be healthy
       postgres:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
 
 volumes:
   postgres_data:
