@@ -5,17 +5,16 @@ import datetime
 import json
 import paho.mqtt.publish as mqtt_publish
 import sqlite3
-import structlog # <-- Import structlog
+import structlog
 
 from .database import get_db_connection
 from . import schemas, security
 from .archivist import create_job_folders, DATA_ROOT
 
-# Initialize the logger for this file
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
-# NOTE: The /token endpoint lives in security.py
+# The /token endpoint is correctly defined in security.py
 
 @router.get("/", tags=["Status"])
 def read_root():
@@ -25,11 +24,12 @@ def read_root():
 
 @router.post("/job", response_model=schemas.Job, tags=["Jobs"])
 def create_new_job(current_user: dict = Depends(security.get_current_user)):
+    """Creates a Job-ID, folder, DB log, and publishes an MQTT event."""
     job_id = f"FC-{uuid4()}"
     timestamp = datetime.datetime.now(datetime.UTC).isoformat()
     
+    logger.info("job.create.started", job_id=job_id)
     create_job_folders(job_id=job_id, base_path=DATA_ROOT)
-    logger.info("job.folders.created", job_id=job_id)
     
     conn = get_db_connection()
     try:
@@ -45,10 +45,11 @@ def create_new_job(current_user: dict = Depends(security.get_current_user)):
         logger.error("job.db.log_failed", job_id=job_id, error=str(e))
         raise e
     finally:
-        conn.close()
+        if conn:
+            conn.close()
     
-    event_payload = {"job_id": job_id, "timestamp": timestamp}
     try:
+        event_payload = {"job_id": job_id, "timestamp": timestamp}
         mqtt_publish.single(
             topic="aegis/job/created",
             payload=json.dumps(event_payload),
@@ -56,7 +57,6 @@ def create_new_job(current_user: dict = Depends(security.get_current_user)):
         )
         logger.info("job.event.published", job_id=job_id)
     except Exception as e:
-        # This is the line that was changed from print()
         logger.warning("job.event.publish_failed", job_id=job_id, error=str(e))
         
     logger.info("job.create.success", job_id=job_id)
@@ -74,4 +74,5 @@ def list_recent_jobs(limit: int = 20, current_user: dict = Depends(security.get_
         rows = cursor.execute(sql_query, (limit,)).fetchall()
         return [dict(row) for row in rows]
     finally:
-        conn.close()
+        if conn:
+            conn.close()

@@ -4,7 +4,7 @@ import sys
 import structlog
 
 def setup_logging():
-    """Configures the structlog logging system."""
+    """Configures the structlog logging system for the application."""
     
     # This is the shared part of the configuration for all loggers
     shared_processors = [
@@ -29,16 +29,18 @@ def setup_logging():
     formatter = structlog.stdlib.ProcessorFormatter(
         # The 'event' is the main message.
         processor=structlog.processors.JSONRenderer(),
+        # foreign_pre_chain adds our shared processors to logs from other libraries
         foreign_pre_chain=shared_processors,
     )
 
     # Get the root logger and remove any existing handlers to prevent duplicates
-    root_logger = logging.getLogger()
-    for h in root_logger.handlers[:]:
-        root_logger.removeHandler(h)
-
-    # Add our custom handler
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(formatter)
+    root_logger = logging.getLogger()
+    
+    # This loop safely removes any old handlers
+    for h in root_logger.handlers[:]:
+        root_logger.removeHandler(h)
+        
     root_logger.addHandler(handler)
     root_logger.setLevel(logging.INFO)
