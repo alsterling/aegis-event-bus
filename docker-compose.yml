@@ -2,12 +2,13 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     env_file:
       - .env
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -16,18 +17,19 @@ services:
 
   mosquitto:
     image: eclipse-mosquitto:2
+    restart: unless-stopped
     ports:
       - "1883:1883"
 
   eventbus:
     build: .
+    restart: unless-stopped
     env_file:
       - .env
     ports:
       - "8000:8000"
     volumes:
-      # The eventbus.db volume is no longer needed
-      - ./projects_data:/app/projects_data
+      - ./projects_data:/code/projects_data
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,4 +37,4 @@ services:
         condition: service_started
 
 volumes:
-  postgres_data:
+  pgdata:
