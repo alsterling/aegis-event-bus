@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy import Column, DateTime
 from sqlmodel import SQLModel, Field
 
+
 class AuditLog(SQLModel, table=True):
     __tablename__ = "audit_log"
 
