@@ -71,3 +71,20 @@ This is the recommended way to run the application.
     ```bash
     pytest -v
     ```
+    ---
+## Advanced Usage
+
+### Pagination
+
+The `GET /jobs` endpoint supports cursor-based pagination.
+
+`GET /jobs?limit=20&cursor=<last_id>`
+
+This will return a JSON object with `items` and a `next_cursor`. To fetch the next page, make the same request again, passing the received `next_cursor` value in the `cursor` query parameter.
+
+### Generate an Admin JWT
+
+You can generate a long-lived token for administrative or testing purposes using the built-in CLI.
+
+```bash
+python -m app.cli create-token admin --minutes 1440
