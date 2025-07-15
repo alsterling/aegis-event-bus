@@ -1,46 +1,26 @@
 # app/logging_config.py
-import logging
-import sys
-import structlog
+import logging, sys, structlog
+from structlog.processors import JSONRenderer, TimeStamper
 
-def setup_logging():
-    """Configures the structlog logging system for the application."""
-    
-    # This is the shared part of the configuration for all loggers
-    shared_processors = [
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        structlog.processors.TimeStamper(fmt="iso", utc=True),
-        structlog.processors.dict_tracebacks,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-    ]
+def setup_logging() -> None:
+    """One‑shot Structlog configuration for the whole service."""
+    timestamper = TimeStamper(fmt="iso", utc=True)
 
     structlog.configure(
-        processors=shared_processors + [
-            # This processor prepares the log for the standard library
-            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
-        ],
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         cache_logger_on_first_use=True,
+        processors=[
+            structlog.contextvars.merge_contextvars,   # request‑id etc.
+            structlog.processors.add_log_level,
+            timestamper,
+            structlog.processors.dict_tracebacks,      # pretty tracebacks
+            JSONRenderer(),                            # final JSON out
+        ],
     )
 
-    # This configures the final output, in our case, JSON
-    formatter = structlog.stdlib.ProcessorFormatter(
-        # The 'event' is the main message.
-        processor=structlog.processors.JSONRenderer(),
-        # foreign_pre_chain adds our shared processors to logs from other libraries
-        foreign_pre_chain=shared_processors,
+    # The std‑lib side; structlog will feed into this.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",     # structlog already produced JSON
+        stream=sys.stdout,
     )
-
-    # Get the root logger and remove any existing handlers to prevent duplicates
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
-    root_logger = logging.getLogger()
-    
-    # This loop safely removes any old handlers
-    for h in root_logger.handlers[:]:
-        root_logger.removeHandler(h)
-        
-    root_logger.addHandler(handler)
-    root_logger.setLevel(logging.INFO)
