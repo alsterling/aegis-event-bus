@@ -8,10 +8,13 @@ from . import db, endpoints, security, logging_config
 # ---------- logging & metrics set‑up ----------
 logging_config.setup_logging()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    db.init_db()             # creates tables when running under pytest (SQLite)
+    db.init_db()  # creates tables when running under pytest (SQLite)
     yield
+
+
 # ---------------------------------------------
 
 app = FastAPI(title="Aegis Event Bus", lifespan=lifespan)

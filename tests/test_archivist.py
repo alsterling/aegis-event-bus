@@ -1,12 +1,12 @@
 # tests/test_archivist.py
 
-import os
 from pathlib import Path
 import shutil
 from app.archivist import create_job_folders
 
 # Define a temporary folder name for our tests to use
 TEST_DATA_ROOT = Path("test_projects_data_temp")
+
 
 def test_folder_creation():
     """
@@ -21,6 +21,6 @@ def test_folder_creation():
     # --- Assert that the folders now exist ---
     assert (TEST_DATA_ROOT / job_id).is_dir()
     assert (TEST_DATA_ROOT / job_id / "01_raw_data").is_dir()
-    
+
     # --- Clean up after the test is done ---
     shutil.rmtree(TEST_DATA_ROOT)

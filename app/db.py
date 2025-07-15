@@ -14,10 +14,12 @@ engine = create_engine(
     connect_args={"check_same_thread": False} if IS_SQLITE else {},
 )
 
+
 def init_db() -> None:
     """Create tables only for SQLite.  In Postgres we rely on Alembic."""
     if IS_SQLITE:
         SQLModel.metadata.create_all(engine)
+
 
 def get_session():
     with Session(engine) as session:

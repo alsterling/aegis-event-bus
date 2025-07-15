@@ -1,7 +1,8 @@
 # app/security.py
 import os
+
 # This is the key fix: importing timedelta directly from the datetime module
-from datetime import datetime, timedelta, timezone 
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -31,21 +32,27 @@ fake_users_db = {
     }
 }
 
+
 def get_user(username: str):
     return fake_users_db.get(username)
 
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+        )
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
 
 # --- The Main Security Dependency ---
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -60,11 +67,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = get_user(username)
     if user is None:
         raise credentials_exception
     return user
+
 
 @router.post("/token", response_model=schemas.Token, tags=["Authentication"])
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -74,10 +82,10 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
         )
-    
+
     # This now works because timedelta was imported correctly
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+
     access_token = create_access_token(
         data={"sub": user["username"]}, expires_delta=access_token_expires
     )

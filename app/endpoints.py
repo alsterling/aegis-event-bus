@@ -1,5 +1,6 @@
 # app/endpoints.py
-import json, structlog, datetime as dt
+import json
+import structlog
 from uuid import uuid4
 from fastapi import APIRouter, Depends
 import paho.mqtt.publish as mqtt_publish
@@ -13,9 +14,11 @@ from .archivist import create_job_folders, DATA_ROOT
 logger = structlog.get_logger(__name__)
 router = APIRouter()
 
+
 @router.get("/", tags=["Status"])
 def read_root():
     return {"status": "Aegis Event Bus is online"}
+
 
 @router.post("/job", response_model=schemas.Job, tags=["Jobs"])
 def create_new_job(
@@ -33,7 +36,9 @@ def create_new_job(
     try:
         mqtt_publish.single(
             "aegis/job/created",
-            payload=json.dumps({"job_id": job_id, "timestamp": entry.timestamp.isoformat()}),
+            payload=json.dumps(
+                {"job_id": job_id, "timestamp": entry.timestamp.isoformat()}
+            ),
             hostname="mosquitto",
             port=1883,
         )
@@ -41,6 +46,7 @@ def create_new_job(
         logger.warning("mqtt.publish_failed", job_id=job_id, err=str(e))
 
     return {"job_id": job_id}
+
 
 @router.get("/jobs", response_model=list[schemas.AuditLog], tags=["Jobs"])
 def list_recent_jobs(

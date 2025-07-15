@@ -8,6 +8,7 @@ load_dotenv()
 # We still define DATA_ROOT here to be used by the main application
 DATA_ROOT = Path(os.getenv("DATA_ROOT", "projects_data"))
 
+
 def create_job_folders(job_id: str, base_path: Path):
     """
     Creates the standard folder structure for a new job inside a given base_path.
