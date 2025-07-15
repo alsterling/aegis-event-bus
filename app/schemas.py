@@ -1,16 +1,7 @@
 # app/schemas.py
-from pydantic import BaseModel, ConfigDict
-import datetime
-
-
-class AuditLog(BaseModel):
-    id: int
-    job_id: str
-    action: str
-    timestamp: datetime.datetime
-
-    # This is the new, modern way to configure Pydantic models
-    model_config = ConfigDict(from_attributes=True)
+from pydantic import BaseModel
+from typing import List, Optional
+from .models import AuditLog
 
 
 class Job(BaseModel):
@@ -20,3 +11,8 @@ class Job(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class JobsPage(BaseModel):
+    items: List[AuditLog]
+    next_cursor: Optional[int] = None
