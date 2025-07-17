@@ -1,18 +1,28 @@
 # app/endpoints.py
-from fastapi import APIRouter, Depends, Query
 from uuid import uuid4
-import json
-import structlog
+import json, os, structlog, datetime as dt
+from fastapi import APIRouter, Depends, Query
+from sqlmodel import Session, select, text
 import paho.mqtt.publish as mqtt_publish
-from sqlmodel import Session, select
 
 from .db import get_session
 from .models import AuditLog
 from . import schemas, security
 from .archivist import create_job_folders, DATA_ROOT
 
-logger = structlog.get_logger(__name__)
 router = APIRouter()
+log = structlog.get_logger(__name__)
+
+MQTT_HOST = os.getenv("MQTT_HOST", "mosquitto")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "8883"))
+
+
+@router.get("/healthz", include_in_schema=False)
+def health_check(session: Session = Depends(get_session)):
+    """A simple health check endpoint that pings the database."""
+    # This correctly wraps the raw SQL in the text() function
+    session.exec(text("SELECT 1"))
+    return {"status": "ok"}
 
 
 @router.get("/", tags=["Status"])
@@ -23,7 +33,7 @@ def read_root():
 @router.post("/job", response_model=schemas.Job, tags=["Jobs"])
 def create_new_job(
     session: Session = Depends(get_session),
-    current_user: dict = Depends(security.get_current_user),
+    _: dict = Depends(security.get_current_user),
 ):
     job_id = f"FC-{uuid4()}"
     create_job_folders(job_id=job_id, base_path=DATA_ROOT)
@@ -34,16 +44,17 @@ def create_new_job(
         session.commit()
         session.refresh(entry)
 
+    payload = {"job_id": job_id, "timestamp": entry.timestamp.isoformat()}
     try:
-        event_payload = {"job_id": job_id, "timestamp": entry.timestamp.isoformat()}
         mqtt_publish.single(
-            "aegis/job/created",
-            payload=json.dumps(event_payload),
-            hostname="mosquitto",
-            port=1883,
+            topic="aegis/job/created",
+            payload=json.dumps(payload),
+            hostname=MQTT_HOST,
+            port=MQTT_PORT,
+            tls={"ca_certs": "./mosquitto/certs/ca.crt"},
         )
-    except Exception as e:
-        logger.warning("mqtt.publish_failed", job_id=job_id, err=str(e))
+    except Exception as exc:
+        log.warning("mqtt.publish_failed", job_id=job_id, err=str(exc))
 
     return {"job_id": job_id}
 
@@ -51,10 +62,8 @@ def create_new_job(
 @router.get("/jobs", response_model=schemas.JobsPage, tags=["Jobs"])
 def list_recent_jobs(
     session: Session = Depends(get_session),
-    cursor: int | None = Query(
-        default=None, description="ID of the last row from the previous page"
-    ),
-    limit: int = Query(default=20, le=100),
+    cursor: int | None = Query(None, description="last row id from prev page"),
+    limit: int = Query(20, le=100),
     _: dict = Depends(security.get_current_user),
 ):
     stmt = select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)

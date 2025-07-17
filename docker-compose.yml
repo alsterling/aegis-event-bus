@@ -3,38 +3,37 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "${DB_PORT}:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+    env_file: .env
+    ports: [ "${DB_PORT:-5432}:5432" ]
+    volumes: [ pgdata:/var/lib/postgresql/data ]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # THIS IS THE MISSING SERVICE
   mosquitto:
     image: eclipse-mosquitto:2
     restart: unless-stopped
     ports:
       - "1883:1883"
+      - "8883:8883"
+    volumes:
+      - ./mosquitto/conf:/mosquitto/config
+      - ./mosquitto/certs:/mosquitto/certs
+      - mosquitto_data:/mosquitto/data
 
   eventbus:
     build: .
     restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./projects_data:/code/projects_data
+    env_file: .env
+    ports: [ "8000:8000" ]
+    volumes: [ ./projects_data:/code/projects_data ]
     depends_on:
-      postgres:
-        condition: service_healthy
-      mosquitto:
-        condition: service_started
+      postgres:  { condition: service_healthy }
+      mosquitto: { condition: service_started }
 
 volumes:
   pgdata:
+  mosquitto_data: # Add this volume for mosquitto
