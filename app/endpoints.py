@@ -1,14 +1,15 @@
 # app/endpoints.py
+import json
+import os
+import structlog
 from uuid import uuid4
-import json, os, structlog, datetime as dt
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select, text
 import paho.mqtt.publish as mqtt_publish
 
+from . import archivist, schemas, security
 from .db import get_session
 from .models import AuditLog
-from . import schemas, security
-from .archivist import create_job_folders, DATA_ROOT
 
 router = APIRouter()
 log = structlog.get_logger(__name__)
@@ -20,7 +21,6 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", "8883"))
 @router.get("/healthz", include_in_schema=False)
 def health_check(session: Session = Depends(get_session)):
     """A simple health check endpoint that pings the database."""
-    # This correctly wraps the raw SQL in the text() function
     session.exec(text("SELECT 1"))
     return {"status": "ok"}
 
@@ -36,7 +36,7 @@ def create_new_job(
     _: dict = Depends(security.get_current_user),
 ):
     job_id = f"FC-{uuid4()}"
-    create_job_folders(job_id=job_id, base_path=DATA_ROOT)
+    archivist.create_job_folders(job_id, archivist.DATA_ROOT)
 
     with session:
         entry = AuditLog(job_id=job_id, action="job.created")
